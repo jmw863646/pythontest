@@ -31,7 +31,7 @@ if __name__ == '__main__':
     from werkzeug.serving import make_server
 
     parser = argparse.ArgumentParser(description="Run a bug tracker server")
-    parser.add_argument('--interface', default='0.0.0.0',
+    parser.add_argument('--interface', default='127.0.0.1',
                         help="Interface to bind to")
     parser.add_argument('--port', default=8640,
                         help="Port to listen on")
