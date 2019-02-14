@@ -1,0 +1,24 @@
+{
+  "name": "python-tech-test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "ospec",
+    "build": "parcel build --public-url / index.html",
+    "watch": "parcel watch --public-url / index.html",
+    "integration-test": "cucumber-js"
+  },
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "babel-polyfill": "^6.26.0",
+    "bootstrap": "^4.1.0",
+    "cucumber": "^4.1.0",
+    "mithril": "^1.1.6",
+    "mithril-query": "^2.4.0",
+    "nightmare": "^3.0.1",
+    "node-sass": "^4.8.3",
+    "parcel-bundler": "^1.7.0"
+  }
+}

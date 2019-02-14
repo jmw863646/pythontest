@@ -1,0 +1,9 @@
+plan.md
+node_modules
+package-lock.json
+*.pyc
+.cache
+dist
+database.db
+database.db-journal
+screenshots
