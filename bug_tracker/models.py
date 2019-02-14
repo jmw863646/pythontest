@@ -94,7 +94,9 @@ class IssueRepository(object):
                 """INSERT INTO issues(
                     title,
                     description
-                ) VALUES('{}', '{}')""".format(title, description))
+                ) VALUES(?, ?)""", 
+                (title, description)
+            )
             cursor.execute("select last_insert_rowid()")
             return cursor.fetchone()[0]
         finally:
@@ -105,13 +107,13 @@ class IssueRepository(object):
         try:
             if 'title' in kwargs:
                 cursor.execute(
-                    """UPDATE issues SET title = '{}' WHERE id = {}"""
-                    .format(kwargs['title'], issue_id)
+                    """UPDATE issues SET title = ? WHERE id = ?""",
+                    (kwargs['title'], issue_id)
                 )
             if 'description' in kwargs:
                 cursor.execute(
-                    """UPDATE issues SET description = '{}' WHERE id = {}"""
-                    .format(kwargs['description'], issue_id)
+                    """UPDATE issues SET description = ? WHERE id = ?""",
+                    (kwargs['description'], issue_id)
                 )
             if 'closed' in kwargs:
                 cursor.execute(

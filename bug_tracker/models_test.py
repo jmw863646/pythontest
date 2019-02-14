@@ -30,6 +30,16 @@ class IssueRepositoryTest(TestCase):
         self.assertTrue(isinstance(issue.opened, datetime.datetime))
         self.assertEqual(issue.closed, None)
 
+        # Additional tests with apostrophes
+        issue_id_2 = self.instance.create_issue(
+            "It's a wonderful life", "Especially when I've used the appropriate function")
+        issue = self.instance.fetch_issue(issue_id_2)
+        self.assertEqual(issue.id, issue_id_2)
+        self.assertEqual(issue.title, "It's a wonderful life")
+        self.assertEqual(issue.description, "Especially when I've used the appropriate function")
+        self.assertTrue(isinstance(issue.opened, datetime.datetime))
+        self.assertEqual(issue.closed, None)
+
     def test_create_and_list(self):
         issue_id_1 = self.instance.create_issue(
             'Test Issue', 'Test Issue Description')
@@ -57,6 +67,19 @@ class IssueRepositoryTest(TestCase):
         self.assertEqual(issue.title, 'New Title')
         self.assertEqual(issue.description, 'New Description')
         self.assertEqual(issue.closed, datetime.datetime(2020, 1, 1))
+
+        # Repeat but with apostrophes
+        self.instance.update_issue(
+            issue_id,
+            title='Old Title\'s Revenge',
+            description='This time it\'s personal!',
+            closed=datetime.datetime(2021, 1, 1)
+        )
+        issue = self.instance.fetch_issue(issue_id)
+        self.assertEqual(issue.id, issue_id)
+        self.assertEqual(issue.title, 'Old Title\'s Revenge')
+        self.assertEqual(issue.description, 'This time it\'s personal!')
+        self.assertEqual(issue.closed, datetime.datetime(2021, 1, 1))
 
 if __name__ == '__main__':
     main()
