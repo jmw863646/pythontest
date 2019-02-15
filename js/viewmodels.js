@@ -17,6 +17,9 @@ class IssuesModel {
   }
   async loadIssue(issueId) {
     let response = await m.request(`/issues/${issueId}`)
+    if ('error' in response) {
+      return null
+    }
     this.issues[issueId] = response
     return response
   }

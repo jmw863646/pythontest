@@ -59,7 +59,7 @@ class ViewIssue {
         m('p.description', detail.description)
       ]
     )
-    : m('.alert.alert-info', 'Loading')
+    : m('.alert.alert-info', 'Cannot find issue #' + this.issueId)
   }
 }
 

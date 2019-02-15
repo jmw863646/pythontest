@@ -55,6 +55,11 @@ class APITest(TestCase):
         fetch_resp_2 = self.client.simulate_get(new_location)
         issue_json_2 = fetch_resp_2.json
         self.assertEqual(issue_json_2['description'], "An updated issue")
+    
+    def test_nonexistent_issues(self):
+        fetch_resp = self.client.simulate_get('/issues/1')
+        self.assertEqual(fetch_resp.status_code, 200, 'Succeeds but returns error in JSON')
+        self.assertIn('error', fetch_resp.json)
 
 if __name__ == '__main__':
     main()
