@@ -79,7 +79,17 @@ class EditIssue {
       descriptionText: issue.description,
       closedFlag: Boolean(issue.closed),
       onSubmit: async (fields) => {
-        await this.model.updateIssue(this.issueId, fields)
+        // Server-side expects 'description' but client-side calls it 'descriptionText'
+        renamedFields = {}
+        for (k in fields) {
+          if (k == 'descriptionText') {
+            renamedFields['description'] = fields['descriptionText']
+          } else {
+            renamedFields[k] = fields[k]
+          }
+        }
+
+        await this.model.updateIssue(this.issueId, renamedFields)
         m.route.set(`/issues/${this.issueId}`)
         m.redraw()
       }

@@ -87,8 +87,9 @@ Then('the title should match', async function() {
   assert.equal(this.issue.title, title)
 })
 
-When('I close the bug and save', async function() {
+When('I change the description, close the bug and save', async function() {
   await this.browser.click('#closed-input')
+  await this.browser.type('#description-input', ' Fixed.')
   await this.browser.click('#save-button')
 })
 
@@ -106,4 +107,22 @@ Then('my bug should appear in the list closed', async function() {
   }, this.issue.title)
   assert.ok(closedInList)
   assert.ok(DateTimeRE.test(closedInList), "The value of 'closed' doesn't look like a datetime")
+});
+
+When('I view the description of the bug again', async function () {
+  await this.browser.evaluate(title => {
+    let rows = document.querySelectorAll('table tr')
+    for (let row of rows) {
+      let titleCell = row.querySelector('.title-cell a')
+      if (titleCell.innerText === title) titleCell.click()
+    }
+  }, this.issue.title)
+});
+
+Then('the description should be updated', async function () {
+  this.browser.wait('p.description')
+  let description = await this.browser.evaluate(() => {
+    return document.querySelector('p.description').innerText
+  })
+  assert.equal(this.issue.description + " Fixed.", description)
 });

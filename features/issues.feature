@@ -11,6 +11,8 @@ Feature: Issues
     Then the description should match
     When I edit the existing bug
     Then the title should match
-    When I close the bug and save
+    When I change the description, close the bug and save
     Then my bug should appear in the list closed
+    When I view the description of the bug again
+    Then the description should be updated
 
