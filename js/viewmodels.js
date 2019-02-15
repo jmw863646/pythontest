@@ -1,11 +1,13 @@
 const m = require('mithril')
+const jstz = require('jstimezonedetect')
 
 class IssuesModel {
   constructor() {
     this.issues = {}
+    this.timezone = jstz.determine().name()
   }
   async loadIssues() {
-    let response = await m.request('/issues')
+    let response = await m.request({method: 'GET', url: '/issues', data: {tz: this.timezone}})
     this.issues = {}
     for (let issue of response.issues) {
       this.issues[issue.id] = issue
@@ -16,7 +18,7 @@ class IssuesModel {
     return Object.keys(this.issues).map(i => this.issues[i])
   }
   async loadIssue(issueId) {
-    let response = await m.request(`/issues/${issueId}`)
+    let response = await m.request({method: 'GET', url: `/issues/${issueId}`, data: {tz: this.timezone}})
     if ('error' in response) {
       return null
     }

@@ -83,7 +83,8 @@ class IssueRepository(object):
                     closed_datetime
                     FROM issues
                     WHERE id = {}""".format(issue_id))
-            return make_issue(cursor.fetchone())
+            row = cursor.fetchone()
+            return make_issue(row) if row != None else None
         finally:
             cursor.close()
 

@@ -55,6 +55,13 @@ class APITest(TestCase):
         fetch_resp_2 = self.client.simulate_get(new_location)
         issue_json_2 = fetch_resp_2.json
         self.assertEqual(issue_json_2['description'], "An updated issue")
+
+        fetch_resp_3 = self.client.simulate_get(new_location, params = {'tz': 'US/Eastern'})
+        issue_json_3 = fetch_resp_3.json
+        self.assertLess(
+            parse_date(issue_json_3['opened']),
+            parse_date(issue_json_2['opened']) - datetime.timedelta(hours = 3)
+        )
     
     def test_nonexistent_issues(self):
         fetch_resp = self.client.simulate_get('/issues/1')
