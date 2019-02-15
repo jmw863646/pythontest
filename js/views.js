@@ -77,6 +77,7 @@ class EditIssue {
     ? m(IssueEditor, {
       title: issue.title,
       descriptionText: issue.description,
+      closedFlag: Boolean(issue.closed),
       onSubmit: async (fields) => {
         await this.model.updateIssue(this.issueId, fields)
         m.route.set(`/issues/${this.issueId}`)
@@ -108,10 +109,11 @@ class IssueEditor {
   constructor(vnode) {
     this.title = vnode.attrs.title
     this.descriptionText = vnode.attrs.descriptionText
+    this.closedFlag = vnode.attrs.closedFlag
     this.onSubmit = vnode.attrs.onSubmit
   }
   view() {
-    return m('form', {onsubmit: e => this.onSubmit({title: this.title, descriptionText: this.descriptionText})}, [
+    return m('form', {onsubmit: e => this.onSubmit({title: this.title, descriptionText: this.descriptionText, closedFlag: this.closedFlag})}, [
       m('.form-group', [
         m('label', {'for': 'title-input'}, 'Issue Title'),
         m('input.form-control#title-input', {value: this.title, oninput: (e) => {this.title = e.target.value}})
@@ -119,6 +121,10 @@ class IssueEditor {
       m('.form-group', [
         m('label', {'for': 'description-input'}, 'Description'),
         m('textarea.form-control#description-input', {oninput: (e) => {this.descriptionText = e.target.value}}, this.descriptionText)
+      ]),
+      m('.form.group', [
+        m('label', {'for': 'closed-input'}, 'Closed'),
+        m('input.form-control#closed-input', {type: 'checkbox', checked: this.closedFlag, onclick: (e) => { this.closedFlag = e.target.checked}})
       ]),
       m('button.btn.btn-primary#save-button', {type: 'submit'}, 'Save')
     ])

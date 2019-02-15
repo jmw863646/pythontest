@@ -9,3 +9,8 @@ Feature: Issues
     Then my bug should appear in the list
     When I view the description of the bug
     Then the description should match
+    When I edit the existing bug
+    Then the title should match
+    When I close the bug and save
+    Then my bug should appear in the list closed
+

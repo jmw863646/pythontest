@@ -1,6 +1,7 @@
 const assert = require('assert')
 const { Before, After, Given, When, Then } = require('cucumber')
 const Nightmare = require('nightmare')
+const DateTimeRE = RegExp('^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}$')
 
 function randomString() {
   return Math.floor((Math.random() * (36 ** 10))).toString(36)
@@ -72,4 +73,37 @@ Then('the description should match', async function () {
     return document.querySelector('p.description').innerText
   })
   assert.equal(this.issue.description, description)
+});
+
+When('I edit the existing bug', async function () {
+  await this.browser.click('.btn-primary')
+});
+
+Then('the title should match', async function() {
+  this.browser.wait('#title-input')
+  let title = await this.browser.evaluate(() => {
+    return document.querySelector('#title-input').value
+  })
+  assert.equal(this.issue.title, title)
+})
+
+When('I close the bug and save', async function() {
+  await this.browser.click('#closed-input')
+  await this.browser.click('#save-button')
+})
+
+Then('my bug should appear in the list closed', async function() {
+  await this.browser.goto('http://localhost:8640/#!/issues')
+  let closedInList = await this.browser.evaluate(title => {
+    let rows = document.querySelectorAll('table tr')
+    for (let row of rows) {
+      let titleCell = row.querySelector('.title-cell a')
+      if (titleCell.innerText === title) {
+        let closedCell = row.querySelector('.closed-cell')
+        return closedCell.innerText
+      }
+    }
+  }, this.issue.title)
+  assert.ok(closedInList)
+  assert.ok(DateTimeRE.test(closedInList), "The value of 'closed' doesn't look like a datetime")
 });

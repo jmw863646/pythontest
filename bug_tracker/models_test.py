@@ -1,5 +1,6 @@
 from __future__ import absolute_import
 import datetime
+import time
 import os
 import tempfile
 
@@ -56,30 +57,43 @@ class IssueRepositoryTest(TestCase):
     def test_update(self):
         issue_id = self.instance.create_issue(
             'Test Issue', 'Test Issue Description')
+        issue = self.instance.fetch_issue(issue_id)
+        self.assertIsNone(issue.closed)
         self.instance.update_issue(
             issue_id,
             title='New Title',
             description='New Description',
-            closed=datetime.datetime(2020, 1, 1)
+            closedFlag=True
         )
         issue = self.instance.fetch_issue(issue_id)
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'New Title')
         self.assertEqual(issue.description, 'New Description')
-        self.assertEqual(issue.closed, datetime.datetime(2020, 1, 1))
+        self.assertIsNotNone(issue.closed)
+        previousClosed = issue.closed
+
+        # Closing an already closed issue should not update the timestamp
+        time.sleep(2)
+        self.instance.update_issue(
+            issue_id,
+            closedFlag=True
+        )
+        issue = self.instance.fetch_issue(issue_id)
+        self.assertEqual(issue.id, issue_id)
+        self.assertEqual(issue.closed, previousClosed)
 
         # Repeat but with apostrophes
         self.instance.update_issue(
             issue_id,
             title='Old Title\'s Revenge',
             description='This time it\'s personal!',
-            closed=datetime.datetime(2021, 1, 1)
+            closedFlag=False
         )
         issue = self.instance.fetch_issue(issue_id)
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'Old Title\'s Revenge')
         self.assertEqual(issue.description, 'This time it\'s personal!')
-        self.assertEqual(issue.closed, datetime.datetime(2021, 1, 1))
+        self.assertIsNone(issue.closed)
 
 if __name__ == '__main__':
     main()

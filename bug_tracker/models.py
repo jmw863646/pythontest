@@ -115,10 +115,16 @@ class IssueRepository(object):
                     """UPDATE issues SET description = ? WHERE id = ?""",
                     (kwargs['description'], issue_id)
                 )
-            if 'closed' in kwargs:
-                cursor.execute(
-                    """UPDATE issues SET closed_datetime = '{}' WHERE id = {}"""
-                    .format(kwargs['closed'].isoformat(), issue_id)
-                )
+
+            # The field 'closedFlag' is a Boolean indicating whether the issue is closed. If it is now closed then let the database timestamp
+            # the closure as it did the creation.
+            if 'closedFlag' in kwargs:
+                if kwargs['closedFlag']:
+                    cursor.execute(
+                        """UPDATE issues 
+                            SET closed_datetime = DATETIME('now') 
+                            WHERE id = {} AND closed_datetime IS NULL""".format(issue_id))
+                else:
+                    cursor.execute("UPDATE issues SET closed_datetime = NULL WHERE id = {}".format(issue_id))
         finally:
             cursor.close()
