@@ -96,6 +96,7 @@ class CreateIssue {
     return m(IssueEditor, {
       title: '',
       descriptionText: '',
+      closedFlag: null,
       onSubmit: async ({descriptionText, title}) => {
         await this.model.createIssue({description: descriptionText, title: title})
         m.route.set(`/issues`)
@@ -113,7 +114,7 @@ class IssueEditor {
     this.onSubmit = vnode.attrs.onSubmit
   }
   view() {
-    return m('form', {onsubmit: e => this.onSubmit({title: this.title, descriptionText: this.descriptionText, closedFlag: this.closedFlag})}, [
+    groups = [
       m('.form-group', [
         m('label', {'for': 'title-input'}, 'Issue Title'),
         m('input.form-control#title-input', {value: this.title, oninput: (e) => {this.title = e.target.value}})
@@ -121,13 +122,20 @@ class IssueEditor {
       m('.form-group', [
         m('label', {'for': 'description-input'}, 'Description'),
         m('textarea.form-control#description-input', {oninput: (e) => {this.descriptionText = e.target.value}}, this.descriptionText)
-      ]),
-      m('.form.group', [
+      ])
+    ]
+
+    // Don't display closed flag on creation
+    if (this.closedFlag != null) {
+      groups.push(m('.form.group', [
         m('label', {'for': 'closed-input'}, 'Closed'),
         m('input.form-control#closed-input', {type: 'checkbox', checked: this.closedFlag, onclick: (e) => { this.closedFlag = e.target.checked}})
-      ]),
-      m('button.btn.btn-primary#save-button', {type: 'submit'}, 'Save')
-    ])
+      ]))
+    }
+
+    groups.push(m('button.btn.btn-primary#save-button', {type: 'submit'}, 'Save'))
+
+    return m('form', {onsubmit: e => this.onSubmit({title: this.title, descriptionText: this.descriptionText, closedFlag: this.closedFlag})}, groups)
   }
 }
 
