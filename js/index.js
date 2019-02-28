@@ -1,19 +1,16 @@
 require('babel-polyfill')
 const m = require('mithril')
-const {IssuesList, ViewIssue, CreateIssue, EditIssue, ToolbarContainer} = require('./views')
-const {IssuesModel} = require('./viewmodels')
-
-const issuesModel = new IssuesModel()
+const {IssuesList, ViewIssue, CreateIssue, EditIssue, RegisterUser, LoginUser, ToolbarContainer} = require('./views')
 
 m.route(document.body, '/issues', {
   '/issues': {
     render(vnode) {
-      return m(ToolbarContainer, m(IssuesList, {model: issuesModel}))
+      return m(ToolbarContainer, m(IssuesList))
     }
   },
   '/issues/create': {
     render(vnode) {
-      return m(ToolbarContainer, m(CreateIssue, {model: issuesModel}))
+      return m(ToolbarContainer, m(CreateIssue))
     }
   },
   '/issues/:issueId': {
@@ -21,13 +18,23 @@ m.route(document.body, '/issues', {
       return m(
         ToolbarContainer,
         (vnode.attrs.issueId === 'new')
-        ? m(CreateIssue, {model: issuesModel})
-        : m(ViewIssue, {model: issuesModel, issueId: vnode.attrs.issueId}))
+        ? m(CreateIssue)
+        : m(ViewIssue, {issueId: vnode.attrs.issueId}))
     }
   },
   '/issues/:issueId/edit': {
     render(vnode) {
-      return m(ToolbarContainer, m(EditIssue, {model: issuesModel, issueId: vnode.attrs.issueId}))
+      return m(ToolbarContainer, m(EditIssue, {issueId: vnode.attrs.issueId}))
+    }
+  },
+  '/register': {
+    render(vnode) {
+      return m(ToolbarContainer, m(RegisterUser))
+    }
+  },
+  '/login': {
+    render(vnode) {
+      return m(ToolbarContainer, m(LoginUser))
     }
   }
 })

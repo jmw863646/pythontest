@@ -21,9 +21,28 @@ class APITest(TestCase):
         os.remove(self.db_file)
 
     def test_issue_workflow(self):
+        register_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'justin@justinware.me.uk', 'password': 'garfield'}
+        )
+        self.assertEqual(register_resp.status_code, 204, 'Successfully registered a user')
+
+        login_resp = self.client.simulate_post(
+            '/login',
+            json={'email': 'justin@justinware.me.uk', 'password': 'garfield'}
+        )
+        self.assertEqual(login_resp.status_code, 200)
+        userId = login_resp.json['userId']
+        sessionId = login_resp.json['sessionId']
+
         create_resp = self.client.simulate_post(
             '/issues',
-            json={'title': "Test Issue", 'description': "Test Description"}
+            json={
+                'title': 'Test Issue', 
+                'description': 'Test Description', 
+                'userId': userId, 
+                'sessionId': sessionId
+            }
         )
         self.assertEqual(create_resp.status_code, 303)
         new_location = create_resp.headers['Location']
@@ -47,7 +66,9 @@ class APITest(TestCase):
         update_resp = self.client.simulate_put(
             new_location,
             json={
-                'description': "An updated issue"
+                'description': 'An updated issue', 
+                'userId': userId, 
+                'sessionId': sessionId
             }
         )
         self.assertEqual(update_resp.status_code, 204)
@@ -67,6 +88,60 @@ class APITest(TestCase):
         fetch_resp = self.client.simulate_get('/issues/1')
         self.assertEqual(fetch_resp.status_code, 200, 'Succeeds but returns error in JSON')
         self.assertIn('error', fetch_resp.json)
+
+    def test_user_register(self):
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'justin@justinware.me.uk', 'password': 'garfield'}
+        )
+        self.assertEqual(create_resp.status_code, 204, 'Succeeds and returns no more output')
+
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'justin@justinware.me.uk', 'password': 'pookie'}
+        )
+        self.assertEqual(create_resp.status_code, 200, 'Output returned')
+        self.assertIn('error', create_resp.json)
+
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'clearly not an e-mail address', 'password': 'wibble'}
+        )
+        self.assertEqual(create_resp.status_code, 200, 'Output returned')
+        self.assertIn('error', create_resp.json)
+
+    def test_user_login(self):
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'justin@justinware.me.uk', 'password': 'garfield'}
+        )
+        self.assertEqual(create_resp.status_code, 204, 'Succeeds and returns no more output')
+
+        login_resp = self.client.simulate_post(
+            '/login',
+            json={'email': 'fred@flintstones.org', 'password': 'yabba-dabba-doo'}
+        )
+        self.assertEqual(login_resp.status_code, 401, 'Not authorised')
+
+        login_resp = self.client.simulate_post(
+            '/login',
+            json={'email': 'justin@justinware.me.uk', 'password': 'yabba-dabba-doo'}
+        )
+        self.assertEqual(login_resp.status_code, 401, 'Not authorised')
+
+        login_resp = self.client.simulate_post(
+            '/login',
+            json={'email': 'justin@justinware.me.uk', 'password': 'garfield'}
+        )
+        self.assertEqual(login_resp.status_code, 200)
+        self.assertEqual(login_resp.json['userId'], 1)
+        self.assertEqual(len(login_resp.json['sessionId']), 32)
+
+        logout_resp = self.client.simulate_post(
+            '/logout',
+            json={'userId': 1}
+        )
+        self.assertEqual(logout_resp.status_code, 204)
 
 if __name__ == '__main__':
     main()

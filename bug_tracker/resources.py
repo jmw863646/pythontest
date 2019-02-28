@@ -41,14 +41,19 @@ class IssuesResource(object):
             resp.status = falcon.HTTP_200
 
     def on_post(self, req, resp):
+        fields = req.media
+
         with self._repo.open() as repo:
-            new_issue = req.media
+            # Check this has valid user id and session id
+            if not repo.users.authenticateSessionId(fields.get('userId'), fields.get('sessionId')):
+                resp.status_code = falcon.HTTP_401
+                return
+
             new_id = repo.issues.create_issue(
-                new_issue['title'],
-                new_issue['description']
+                fields['title'],
+                fields['description']
             )
         raise falcon.HTTPSeeOther('/issues/{}'.format(new_id))
-
 
 class IssueResource(object):
     def __init__(self, repo):
@@ -67,7 +72,68 @@ class IssueResource(object):
             resp.status = falcon.HTTP_200
 
     def on_put(self, req, resp, issue_id):
+        fields = req.media
+
         with self._repo.open() as repo:
-            update = req.media
-            repo.issues.update_issue(issue_id, **update)
+            # Check this has valid user id and session id
+            if not repo.users.authenticateSessionId(fields.get('userId'), fields.get('sessionId')):
+                resp.status_code = falcon.HTTP_401
+                return
+
+            repo.issues.update_issue(issue_id, **fields)
+            resp.status = falcon.HTTP_204
+
+class RegisterResource(object):
+    """A resource to register new users."""
+
+    def __init__(self, repo):
+        self._repo = repo
+    
+    def on_post(self, req, resp):
+        """Register a new user. The response may contain an 'error' property."""
+        with self._repo.open() as repo:
+            new_user = req.media
+            error = repo.users.register(
+                new_user['email'], 
+                new_user['password']
+            )
+
+            if error is None:
+                resp.status = falcon.HTTP_204
+            else:
+                resp.media = { 'error': error }
+                resp.status = falcon.HTTP_200
+
+class LoginResource(object):
+    """A resource to login an existing user."""
+
+    def __init__(self, repo):
+        self._repo = repo
+    
+    def on_post(self, req, resp):
+        """Login an existing user. If successful the response contains user and session ids."""
+        with self._repo.open() as repo:
+            authenticate_user = req.media
+            sessionDetails = repo.users.createSessionId(
+                authenticate_user['email'], 
+                authenticate_user['password']
+            )
+
+            if sessionDetails is None:
+                resp.status = falcon.HTTP_401
+            else:
+                resp.media = { 'userId': sessionDetails[0], 'sessionId': sessionDetails[1] }
+                resp.status = falcon.HTTP_200
+
+class LogoutResource(object):
+    """A resource to logout an existing user."""
+
+    def __init__(self, repo):
+        self._repo = repo
+
+    def on_post(self, req, resp):
+        """Logout an existing user. There is never a response."""
+        id = req.media['userId']
+        with self._repo.open() as repo:
+            repo.users.revokeSessionId(id)
             resp.status = falcon.HTTP_204
