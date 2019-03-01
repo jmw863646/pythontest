@@ -3,7 +3,7 @@ import argparse
 import falcon
 import os
 
-from .resources import IssueResource, IssuesResource, RegisterResource, LoginResource, LogoutResource
+from .resources import IssueResource, IssuesResource, RegisterResource, LoginResource, LogoutResource, UsersResource
 from .models import Repository
 
 
@@ -22,9 +22,10 @@ def make_api(database_location, migrate_database=True):
         repo.migrate_database()
     api.add_route('/issues', IssuesResource(repo))
     api.add_route('/issues/{issue_id}', IssueResource(repo))
-    api.add_route("/login", LoginResource(repo))
-    api.add_route("/logout", LogoutResource(repo))
-    api.add_route("/register", RegisterResource(repo))
+    api.add_route('/login', LoginResource(repo))
+    api.add_route('/logout', LogoutResource(repo))
+    api.add_route('/register', RegisterResource(repo))
+    api.add_route('/users', UsersResource(repo))
     static_dir = os.path.abspath(os.path.join(__file__, '..', '..', 'dist'))
     api.add_static_route('/', static_dir)
     return _index_middleware(api)

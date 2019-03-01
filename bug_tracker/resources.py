@@ -16,6 +16,8 @@ def _issue_to_json(issue, clientTZ):
         'description': issue.description,
         'opened': _to_local(issue.opened, clientTZ) if issue.opened else None,
         'closed': _to_local(issue.closed, clientTZ) if issue.closed else None,
+        'createdBy': issue.createdBy,
+        'assignedTo': issue.assignedTo
     }
 
 def _interpret_tzname(name):
@@ -51,7 +53,8 @@ class IssuesResource(object):
 
             new_id = repo.issues.create_issue(
                 fields['title'],
-                fields['description']
+                fields['description'],
+                fields['userId']
             )
         raise falcon.HTTPSeeOther('/issues/{}'.format(new_id))
 
@@ -137,3 +140,23 @@ class LogoutResource(object):
         with self._repo.open() as repo:
             repo.users.revokeSessionId(id)
             resp.status = falcon.HTTP_204
+
+def _userToJSON(user):
+    return {
+        'id': user.id,
+        'email': user.email
+    }
+
+class UsersResource(object):
+    """A resource to get a list of users."""
+
+    def __init__(self, repo):
+        self._repo = repo
+
+    def on_get(self, req, resp):
+        with self._repo.open() as repo:
+            userList = repo.users.listUsers()
+            resp.media = {
+                'users': [_userToJSON(user) for user in userList]
+            }
+            resp.status = falcon.HTTP_200

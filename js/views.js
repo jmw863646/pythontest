@@ -13,14 +13,18 @@ class IssuesList {
       m('thead', [
         m('th', 'title'),
         m('th', 'opened'),
-        m('th', 'closed')
+        m('th', 'closed'),
+        m('th', 'created by'),
+        m('th', 'assigned to')
       ]),
       m('tbody', [
         IssuesModelSingleton.list.map(item =>
           m('tr', [
             m('td.title-cell', m("a", {href: `/issues/${item.id}`, oncreate: m.route.link}, item.title)),
             m('td.opened-cell', item.opened),
-            m('td.closed-cell', item.closed)
+            m('td.closed-cell', item.closed),
+            m('td.created-cell', item.createdBy),
+            m('td.assigned-cell', item.assignedTo)
           ])
         )
       ])
@@ -60,8 +64,14 @@ class ViewIssue {
         m('dl.row', [
           m('dt.col-sm-3', 'Opened'),
           m('dd.col-sm-3', detail.opened),
+          m('dt.col-sm-3', 'Created By'),
+          m('dd.col-sm-3', detail.createdBy),
+        ]),
+        m('dl.row', [
           m('dt.col-sm-3', 'Closed'),
           m('dd.col-sm-3', detail.closed),
+          m('dt.col-sm-3', 'Assigned To'),
+          m('dd.col-sm-3', detail.assignedTo),
         ]),
         m('h2', 'Description'),
         m('p.description', detail.description)
@@ -87,6 +97,7 @@ class EditIssue {
       title: issue.title,
       descriptionText: issue.description,
       closedFlag: Boolean(issue.closed),
+      assignedTo: issue.assignedTo,
       onSubmit: async (fields) => {
         // Server-side expects 'description' but client-side calls it 'descriptionText'
         renamedFields = {}
@@ -130,10 +141,19 @@ class IssueEditor {
     this.title = vnode.attrs.title
     this.descriptionText = vnode.attrs.descriptionText
     this.closedFlag = vnode.attrs.closedFlag
+    this.assignedTo = vnode.attrs.assignedTo
     this.onSubmit = vnode.attrs.onSubmit
   }
+
+  async oninit() {
+    var owner = this
+    UserModelSingleton.getUsers().then(function(userList) {
+      owner.userList = userList
+    })
+  }
+
   view() {
-    groups = [
+    var groups = [
       m('.form-group', [
         m('label', {'for': 'title-input'}, 'Issue Title'),
         m('input.form-control#title-input', {value: this.title, oninput: (e) => {this.title = e.target.value}})
@@ -144,12 +164,48 @@ class IssueEditor {
       ])
     ]
 
-    // Don't display closed flag on creation
+    // Don't display assigned or closed flag on creation
     if (this.closedFlag != null) {
-      groups.push(m('.form.group', [
-        m('label', {'for': 'closed-input'}, 'Closed'),
-        m('input.form-control#closed-input', {type: 'checkbox', checked: this.closedFlag, onclick: (e) => { this.closedFlag = e.target.checked}})
-      ]))
+      var args = {value: -1}
+
+      // Is the issue currently unassigned?
+      if (!this.assigneeId) args['selected'] = 'true'
+
+      var options = [
+        m('option', args, '<unassigned>')
+      ]
+
+      // Doe we have a user list yet?
+      if (this.userList) {
+        options.push(
+          this.userList.map((u) => {
+            args = {value: u.id}
+
+            // Is the issue currently assigned to this user?
+            if (u.email == this.assignedTo) args['selected'] = 'true'
+
+            return m('option', args, u.email)
+          })
+        )
+      }
+
+      groups.push([
+        m('.form-group', [
+          m('label', {'for': 'assignee-input'}, 'Assigned To'),
+          m('select.form-control#assignee-input', {onchange: (e) => {
+            var optionElement = e.target.firstChild
+            while (optionElement) {
+              if (optionElement.selected)
+                this.assigneeId = optionElement.value;
+              optionElement = optionElement.nextSibling;
+            }
+          }}, options)
+        ]),
+        m('.form-group', [
+          m('label', {'for': 'closed-input'}, 'Closed'),
+          m('input.form-control#closed-input', {type: 'checkbox', checked: this.closedFlag, onclick: (e) => { this.closedFlag = e.target.checked}})
+        ])
+      ])
     }
 
     groups.push(m('button.btn.btn-primary#save-button', {type: 'submit'}, 'Save'))
@@ -158,7 +214,11 @@ class IssueEditor {
       // Prevent the form from automatically reloading the page so that Mithril can redraw or route appropriately
       e.preventDefault();
 
-      this.onSubmit({title: this.title, descriptionText: this.descriptionText, closedFlag: this.closedFlag});
+      this.onSubmit({
+        title: this.title, 
+        descriptionText: this.descriptionText, 
+        closedFlag: this.closedFlag, 
+        assigneeId: this.assigneeId});
     }}, groups)
   }
 }
@@ -178,7 +238,7 @@ function _createRegisterLoginUserView(purpose, owner) {
     groups.push([
       m('.form-group', [
         'Login to bug tracker if you have an existing account or ', 
-        m('a', {href: '/register', oncreate: m.route.link}, 'register'),
+        m('a', {id: 'register-link', href: '/register', oncreate: m.route.link}, 'register'),
         ' for a new one.'
       ])
     ])

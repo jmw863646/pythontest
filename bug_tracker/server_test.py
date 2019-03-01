@@ -56,12 +56,14 @@ class APITest(TestCase):
             datetime.datetime.utcnow(),
             delta=datetime.timedelta(seconds=5)
         )
+        self.assertEqual(issue_json['createdBy'], 'justin@justinware.me.uk')
 
         list_resp = self.client.simulate_get('/issues')
         issues = list_resp.json['issues']
         self.assertEqual(len(issues), 1)
         self.assertEqual(issues[0]['title'], "Test Issue")
         self.assertEqual(issues[0]['description'], "Test Description")
+        self.assertEqual(issues[0]['createdBy'], "justin@justinware.me.uk")
 
         update_resp = self.client.simulate_put(
             new_location,
@@ -77,11 +79,42 @@ class APITest(TestCase):
         issue_json_2 = fetch_resp_2.json
         self.assertEqual(issue_json_2['description'], "An updated issue")
 
+        # Want another user
+        register_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'fred@bloggs.com', 'password': 'garfield'}
+        )
+        self.assertEqual(register_resp.status_code, 204, 'Successfully registered a user')
+
+        login_resp = self.client.simulate_post(
+            '/login',
+            json={'email': 'fred@bloggs.com', 'password': 'garfield'}
+        )
+        self.assertEqual(login_resp.status_code, 200)
+        userId = login_resp.json['userId']
+        sessionId = login_resp.json['sessionId']
+
+        # Assign issue to the other user
+        update_resp = self.client.simulate_put(
+            new_location,
+            json={
+                'assigneeId': userId, 
+                'userId': userId, 
+                'sessionId': sessionId
+            }
+        )
+        fetch_resp_2 = self.client.simulate_get(new_location)
+        issue_json_2 = fetch_resp_2.json
+        self.assertEqual(issue_json_2['createdBy'], 'justin@justinware.me.uk')
+        self.assertEqual(issue_json_2['assignedTo'], 'fred@bloggs.com')
+
+        # Query issue with a different timezone
         fetch_resp_3 = self.client.simulate_get(new_location, params = {'tz': 'US/Eastern'})
         issue_json_3 = fetch_resp_3.json
         self.assertLess(
             parse_date(issue_json_3['opened']),
-            parse_date(issue_json_2['opened']) - datetime.timedelta(hours = 3)
+            parse_date(issue_json_2['opened']) - datetime.timedelta(hours = 3),
+            'Timestamp should be earlier as in the USA not Greenwich'
         )
     
     def test_nonexistent_issues(self):
@@ -142,6 +175,36 @@ class APITest(TestCase):
             json={'userId': 1}
         )
         self.assertEqual(logout_resp.status_code, 204)
+    
+    def test_user_list(self):
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'a@b.c', 'password': 'wibble'}
+        )
+        self.assertEqual(create_resp.status_code, 204)
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'z@d.e', 'password': 'wibble'}
+        )
+        self.assertEqual(create_resp.status_code, 204)
+        create_resp = self.client.simulate_post(
+            '/register',
+            json={'email': 'm@f.g', 'password': 'wibble'}
+        )
+        self.assertEqual(create_resp.status_code, 204)
+
+        user_list_resp = self.client.simulate_get(
+            '/users'
+        )
+        self.assertEqual(user_list_resp.status_code, 200)
+        users = user_list_resp.json['users']
+        self.assertEqual(len(users), 3)
+        self.assertEqual(users[0]['id'], 1)
+        self.assertEqual(users[0]['email'], 'a@b.c')
+        self.assertEqual(users[1]['id'], 3)
+        self.assertEqual(users[1]['email'], 'm@f.g')
+        self.assertEqual(users[2]['id'], 2)
+        self.assertEqual(users[2]['email'], 'z@d.e')
 
 if __name__ == '__main__':
     main()

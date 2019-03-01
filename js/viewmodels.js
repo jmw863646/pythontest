@@ -152,6 +152,22 @@ class UserModel {
     else
       return emailAndIds;
   }
+
+  /** 
+   * Get a list of the users.
+   */
+  async getUsers(callback) {
+    var userList = []
+
+    await m.request({
+      method: 'GET',
+      url: '/users'
+    }).then(function(response) {
+      userList = response.users
+    })
+
+    return userList
+  }
 }
 
 const UserModelSingleton = new UserModel()

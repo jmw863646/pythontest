@@ -43,16 +43,16 @@ class RepositoryConnection(object):
     def close(self):
         self._conn.close()
 
-Issue = namedtuple('Issue', ['id', 'title', 'description', 'opened', 'closed'])
+Issue = namedtuple('Issue', ['id', 'title', 'description', 'opened', 'closed', 'createdBy', 'assignedTo' ])
 
 
 def make_issue(row):
-    id_, title, description, opened, closed = row
+    id_, title, description, opened, closed, createdBy, assignedTo = row
     if opened is not None:
         opened = dateutil.parser.parse(opened)
     if closed is not None:
         closed = dateutil.parser.parse(closed)
-    return Issue(id_, title, description, opened, closed)
+    return Issue(id_, title, description, opened, closed, createdBy, assignedTo)
 
 
 class IssueRepository(object):
@@ -64,13 +64,18 @@ class IssueRepository(object):
         try:
             cursor.execute(
                 """SELECT
-                    id,
-                    title,
-                    description,
-                    opened_datetime,
-                    closed_datetime
-                    FROM issues
-                    ORDER BY id""")
+                        i.id,
+                        i.title,
+                        i.description,
+                        i.opened_datetime,
+                        i.closed_datetime,
+                        u1.email,
+                        u2.email
+                    FROM 
+                        issues i
+                        JOIN users u1 ON i.creatorId = u1.id
+                        LEFT JOIN users u2 on i.assigneeId = u2.id 
+                    ORDER BY i.id""")
             return [make_issue(row) for row in cursor.fetchall()]
         finally:
             cursor.close()
@@ -80,27 +85,36 @@ class IssueRepository(object):
         try:
             cursor.execute(
                 """SELECT
-                    id,
-                    title,
-                    description,
-                    opened_datetime,
-                    closed_datetime
-                    FROM issues
-                    WHERE id = {}""".format(issue_id))
+                        i.id,
+                        i.title,
+                        i.description,
+                        i.opened_datetime,
+                        i.closed_datetime,
+                        u1.email,
+                        u2.email
+                    FROM 
+                        issues i
+                        JOIN users u1 ON i.creatorId = u1.id
+                        LEFT JOIN users u2 on i.assigneeId = u2.id 
+                    WHERE 
+                        i.id = ?
+                    ORDER BY i.id""",
+                    (issue_id, ))
             row = cursor.fetchone()
             return make_issue(row) if row != None else None
         finally:
             cursor.close()
 
-    def create_issue(self, title, description):
+    def create_issue(self, title, description, creatorId):
         cursor = self._conn.cursor()
         try:
             cursor.execute(
                 """INSERT INTO issues(
                     title,
-                    description
-                ) VALUES(?, ?)""", 
-                (title, description)
+                    description,
+                    creatorId
+                ) VALUES(?, ?, ?)""", 
+                (title, description, creatorId)
             )
             cursor.execute("select last_insert_rowid()")
             return cursor.fetchone()[0]
@@ -131,8 +145,28 @@ class IssueRepository(object):
                             WHERE id = {} AND closed_datetime IS NULL""".format(issue_id))
                 else:
                     cursor.execute("UPDATE issues SET closed_datetime = NULL WHERE id = {}".format(issue_id))
+
+            if 'assigneeId' in kwargs:
+                # Negative assignee id implies issue is not assigned to a user
+                assigneeId = int(kwargs['assigneeId'])
+                if assigneeId < 0:
+                    cursor.execute(
+                        """UPDATE issues SET assigneeId = NULL WHERE id = ?""",
+                        (issue_id, ))
+                else:
+                    cursor.execute(
+                        """UPDATE issues SET assigneeId = ? WHERE id = ?""",
+                        (kwargs['assigneeId'], issue_id))
+
         finally:
             cursor.close()
+
+User = namedtuple('User', ['id', 'email' ])
+
+def _makeUser(row):
+    """Make a 'User' tuple from a returned row."""
+    id_, email = row
+    return User(id_, email)
 
 class UserRepository:
     """Support for registering, logging in, logging out and authentication."""
@@ -219,6 +253,23 @@ class UserRepository:
                 (id, ))
             return True
 
+        finally:
+            cursor.close()
+
+    def listUsers(self):
+        """Generate a list of all users and their ids."""
+
+        cursor = self._conn.cursor()
+        try:
+            cursor.execute(
+                """SELECT
+                        id,
+                        email
+                    FROM 
+                        users
+                    ORDER BY 
+                        email""")
+            return [_makeUser(row) for row in cursor.fetchall()]
         finally:
             cursor.close()
 

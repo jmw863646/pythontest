@@ -24,8 +24,11 @@ class IssueRepositoryTest(TestCase):
         os.remove(self.db_file)
 
     def test_create_and_fetch(self):
+        # Register a user to use as creator
+        self.users.register('justin@justinware.me.uk', 'garfield')
+
         issue_id = self.repo.create_issue(
-            'Test Issue', 'Test Issue Description')
+            'Test Issue', 'Test Issue Description', 1)
         issue = self.repo.fetch_issue(issue_id)
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'Test Issue')
@@ -35,7 +38,7 @@ class IssueRepositoryTest(TestCase):
 
         # Additional tests with apostrophes
         issue_id_2 = self.repo.create_issue(
-            "It's a wonderful life", "Especially when I've used the appropriate function")
+            "It's a wonderful life", "Especially when I've used the appropriate function", 1)
         issue = self.repo.fetch_issue(issue_id_2)
         self.assertEqual(issue.id, issue_id_2)
         self.assertEqual(issue.title, "It's a wonderful life")
@@ -44,34 +47,47 @@ class IssueRepositoryTest(TestCase):
         self.assertEqual(issue.closed, None)
 
     def test_create_and_list(self):
+        # Register some users
+        self.users.register('justin@justinware.me.uk', 'garfield')
+        self.users.register('fred@bloggs.com', 'garfield')
+
         issue_id_1 = self.repo.create_issue(
-            'Test Issue', 'Test Issue Description')
+            'Test Issue', 'Test Issue Description', 1)
         issue_id_2 = self.repo.create_issue(
-            'Test Issue 2', 'Test Issue Description 2')
+            'Test Issue 2', 'Test Issue Description 2', 2)
         issues = self.repo.list_issues()
         self.assertEqual(issues[0].id, issue_id_1)
         self.assertEqual(issues[0].title, 'Test Issue')
         self.assertEqual(issues[0].description, 'Test Issue Description')
+        self.assertEqual(issues[0].createdBy, 'justin@justinware.me.uk')
         self.assertEqual(issues[1].id, issue_id_2)
         self.assertEqual(issues[1].title, 'Test Issue 2')
         self.assertEqual(issues[1].description, 'Test Issue Description 2')
+        self.assertEqual(issues[1].createdBy, 'fred@bloggs.com')
 
     def test_update(self):
+        # Register some users
+        self.users.register('justin@justinware.me.uk', 'garfield')
+        self.users.register('fred@bloggs.com', 'garfield')
+
         issue_id = self.repo.create_issue(
-            'Test Issue', 'Test Issue Description')
+            'Test Issue', 'Test Issue Description', 1)
         issue = self.repo.fetch_issue(issue_id)
         self.assertIsNone(issue.closed)
         self.repo.update_issue(
             issue_id,
             title='New Title',
             description='New Description',
-            closedFlag=True
+            closedFlag=True,
+            assigneeId=2
         )
         issue = self.repo.fetch_issue(issue_id)
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'New Title')
         self.assertEqual(issue.description, 'New Description')
         self.assertIsNotNone(issue.closed)
+        self.assertEqual(issue.createdBy, 'justin@justinware.me.uk')
+        self.assertEqual(issue.assignedTo, 'fred@bloggs.com')
         previousClosed = issue.closed
 
         # Closing an already closed issue should not update the timestamp
@@ -89,13 +105,15 @@ class IssueRepositoryTest(TestCase):
             issue_id,
             title='Old Title\'s Revenge',
             description='This time it\'s personal!',
-            closedFlag=False
+            closedFlag=False, # No longer closed
+            assigneeId=-1 # No longer assigned
         )
         issue = self.repo.fetch_issue(issue_id)
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'Old Title\'s Revenge')
         self.assertEqual(issue.description, 'This time it\'s personal!')
         self.assertIsNone(issue.closed)
+        self.assertIsNone(issue.assignedTo, 'No longer assigned to anyone')
 
     def test_users(self):
         self.assertIsNone(self.users.register('justin@justinware.me.uk', 'garfield'))
@@ -137,6 +155,19 @@ class IssueRepositoryTest(TestCase):
         self.assertTrue(self.users.authenticateSessionId(id, sessionId))
         self.users.revokeSessionId(id)
         self.assertFalse(self.users.authenticateSessionId(id, sessionId))
+
+        self.users.register('zebedee.fisherman@galilee.holy.land', 'Boing!')
+        self.users.register('adam_and_eve@eden.garden', 'Arrgghh, snake!')
+
+        userList = self.users.listUsers()
+        self.assertEqual(userList[0].id, 4)
+        self.assertEqual(userList[0].email, 'adam_and_eve@eden.garden')
+        self.assertEqual(userList[1].id, 1)
+        self.assertEqual(userList[1].email, 'justin@justinware.me.uk'),
+        self.assertEqual(userList[2].id, 2)
+        self.assertEqual(userList[2].email, 'wibble@wobble'),
+        self.assertEqual(userList[3].id, 3)
+        self.assertEqual(userList[3].email, 'zebedee.fisherman@galilee.holy.land'),
 
 if __name__ == '__main__':
     main()
