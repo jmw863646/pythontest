@@ -5,6 +5,7 @@ import hashlib
 import binascii
 import re
 from collections import namedtuple
+from bisect import bisect_left, bisect_right
 from uuid import uuid4
 
 from .migrate_database import do_migrations
@@ -45,15 +46,16 @@ class RepositoryConnection(object):
 
 Issue = namedtuple('Issue', ['id', 'title', 'description', 'opened', 'closed', 'createdBy', 'assignedTo' ])
 
+def _parseDatetime(datetimeStr):
+    if datetimeStr is None:
+        return None
+    return dateutil.parser.parse(datetimeStr)
 
 def make_issue(row):
     id_, title, description, opened, closed, createdBy, assignedTo = row
-    if opened is not None:
-        opened = dateutil.parser.parse(opened)
-    if closed is not None:
-        closed = dateutil.parser.parse(closed)
+    opened = _parseDatetime(opened)
+    closed = _parseDatetime(closed)
     return Issue(id_, title, description, opened, closed, createdBy, assignedTo)
-
 
 class IssueRepository(object):
     def __init__(self, conn):
@@ -157,6 +159,89 @@ class IssueRepository(object):
                     cursor.execute(
                         """UPDATE issues SET assigneeId = ? WHERE id = ?""",
                         (kwargs['assigneeId'], issue_id))
+
+        finally:
+            cursor.close()
+
+    def statistics(self):
+        """Gather statistics for the dashboard."""
+        cursor = self._conn.cursor()
+        try:
+            # Never cache the open number of issues as it's relatively cheap to calculate (providing the table isn't too big)
+            cursor.execute('SELECT COUNT(*) FROM issues WHERE closed_datetime IS NULL')
+            currentOpenNow = cursor.fetchone()[0]
+
+            # Never cache the number of issues closed in the last week as it's relatively cheap to calculate (providing the 
+            # table isn't too big)
+            cursor.execute(
+                """SELECT COUNT(*) 
+                    FROM issues
+                    WHERE closed_datetime > DATE('now', '-7 days')""")
+            closedInLastWeek = cursor.fetchone()[0]
+
+            # The maximum number of open issues there's every been at one time is more complex so we'll cache it and use 
+            # (database) triggers on insert / update to wipe the cached value
+            cursor.execute("SELECT value FROM cached WHERE name = 'max_open'")
+            row = cursor.fetchone()
+            if row is not None:
+                maxOpen = row[0]
+            else:
+                maxOpen = 0
+
+                # There is no cached value so we'll recalculate it
+                cursor.execute(
+                    """SELECT 
+                        opened_datetime,
+                        closed_datetime
+                        FROM 
+                            issues
+                        ORDER BY
+                            opened_datetime,
+                            closed_datetime
+                    """)
+
+                # Issues that are currently open and have a closing date; only closing dates are stored and in increasing
+                # order.
+                willCloseIssues = []
+
+                # The count of issues that are opened but never closed
+                neverCloseIssueCount = 0
+
+                # Iterate throw the issues
+                row = cursor.fetchone()
+                while row is not None:
+                    currentOpened = _parseDatetime(row[0])
+                    currentClosed = _parseDatetime(row[1])
+                    row = cursor.fetchone()
+ 
+                    # Have any open issues closed since this one opened? Look for the first closed date strictly after
+                    # this opened date. Retain those elements
+                    afterIndex = bisect_right(willCloseIssues, currentOpened)
+                    willCloseIssues = willCloseIssues[afterIndex:]
+
+                    # Is the current issue going to close at some point?
+                    if currentClosed is None:
+                        neverCloseIssueCount += 1
+                    else:
+                        # Insert the new closed date in order
+                        insertAt = bisect_left(willCloseIssues, currentClosed)
+                        willCloseIssues.insert(insertAt, currentClosed)
+
+                    # Is this the maximum number of open issues?
+                    currentOpen = len(willCloseIssues) + neverCloseIssueCount
+                    maxOpen = max(currentOpen, maxOpen)
+
+                try:
+                    cursor.execute("INSERT INTO cached VALUES('max_open', ?)", (maxOpen, ))
+                except sqlite3.DatabaseError:
+                    # Ignore any attempt to insert duplicate key
+                    pass
+
+            return {
+                'maxOpen': maxOpen, 
+                'currentOpen': currentOpenNow, 
+                'closedInLastWeek': closedInLastWeek
+            }
 
         finally:
             cursor.close()

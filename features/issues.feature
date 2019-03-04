@@ -43,6 +43,7 @@ Feature: Issues
     Then the title should match
     When the bug is unassigned and saved
     Then the bug should not be assigned
-
+    When I click on the dashboard
+    Then I should see a summary
 
 

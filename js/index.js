@@ -1,6 +1,6 @@
 require('babel-polyfill')
 const m = require('mithril')
-const {IssuesList, ViewIssue, CreateIssue, EditIssue, RegisterUser, LoginUser, ToolbarContainer} = require('./views')
+const {IssuesList, ViewIssue, CreateIssue, EditIssue, RegisterUser, LoginUser, Dashboard, ToolbarContainer} = require('./views')
 
 m.route(document.body, '/issues', {
   '/issues': {
@@ -25,6 +25,11 @@ m.route(document.body, '/issues', {
   '/issues/:issueId/edit': {
     render(vnode) {
       return m(ToolbarContainer, m(EditIssue, {issueId: vnode.attrs.issueId}))
+    }
+  },
+  '/dashboard': {
+    render(vnode) {
+      return m(ToolbarContainer, m(Dashboard))
     }
   },
   '/register': {

@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-import datetime
+from datetime import datetime, date
 import time
 import os
 import tempfile
@@ -33,7 +33,7 @@ class IssueRepositoryTest(TestCase):
         self.assertEqual(issue.id, issue_id)
         self.assertEqual(issue.title, 'Test Issue')
         self.assertEqual(issue.description, 'Test Issue Description')
-        self.assertTrue(isinstance(issue.opened, datetime.datetime))
+        self.assertTrue(isinstance(issue.opened, datetime))
         self.assertEqual(issue.closed, None)
 
         # Additional tests with apostrophes
@@ -43,7 +43,7 @@ class IssueRepositoryTest(TestCase):
         self.assertEqual(issue.id, issue_id_2)
         self.assertEqual(issue.title, "It's a wonderful life")
         self.assertEqual(issue.description, "Especially when I've used the appropriate function")
-        self.assertTrue(isinstance(issue.opened, datetime.datetime))
+        self.assertTrue(isinstance(issue.opened, datetime))
         self.assertEqual(issue.closed, None)
 
     def test_create_and_list(self):
@@ -168,6 +168,94 @@ class IssueRepositoryTest(TestCase):
         self.assertEqual(userList[2].email, 'wibble@wobble'),
         self.assertEqual(userList[3].id, 3)
         self.assertEqual(userList[3].email, 'zebedee.fisherman@galilee.holy.land'),
+    
+    def test_statistics(self):
+        # Directly populate the data as we want fine control over the datetimes
+        with self.repo_conn._conn as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO users(id, email, password) 
+                VALUES (1, 'justin@justinware.me.uk', 'garfield')""")
+            
+            issues = [
+                ( 'an issue 1', 'blah blah blah', datetime(2019,  1, 15, 12,  0,  0), datetime(2019,  1, 25, 10,  0,  0) ),
+                ( 'an issue 2', 'blah blah blah', datetime(2019,  1,  5, 12,  0,  0), datetime(2019,  2,  5, 10,  0,  0) ),
+                ( 'an issue 3', 'blah blah blah', datetime(2019,  1, 10, 12,  0,  0),                               None ),
+                ( 'an issue 4', 'blah blah blah', datetime(2019,  1, 27, 13,  0,  0), datetime(2019,  1, 28, 17,  0,  0) ),
+                ( 'an issue 5', 'blah blah blah', datetime(2019,  1, 20, 12,  0,  0), datetime(2019,  1, 28, 10, 30,  0) ),
+                ( 'an issue 6', 'blah blah blah', datetime(2019,  1, 27,  9, 45,  0),                               None ),
+                ( 'an issue 7', 'blah blah blah', datetime(2019,  1, 27, 14,  5,  0), datetime(2019,  1, 28, 13, 15,  0) ),
+                ( 'an issue 8', 'blah blah blah', datetime(2019,  2,  1, 11, 30,  0),                               None )
+            ]
+
+            # Above test data considers today to be '2019-02-07' (arbitrary choice) but to do closed in last week we'd like it to
+            # be actual today.
+            offset = date.today() - date(2019, 2, 7)
+            for i in range(len(issues)):
+                issues[i] = (
+                    issues[i][0], 
+                    issues[i][1],
+                    issues[i][2] + offset, 
+                    (issues[i][3] + offset) if issues[i][3] is not None else None
+                )
+
+            cursor.executemany("""
+                INSERT INTO issues(title, description, opened_datetime, closed_datetime, creatorId)
+                VALUES (?,?,?,?,1)""", issues)
+            conn.commit()
+
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 6, 'currentOpen': 3, 'closedInLastWeek': 1 }, 'Calculated fresh')
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 6, 'currentOpen': 3, 'closedInLastWeek': 1 }, 'maxOpen is cached')
+
+            # Make an issue close recently
+            conn.execute("""
+                UPDATE issues SET closed_datetime = ? WHERE title = 'an issue 8'""",
+                (datetime(2019, 2, 2, 8, 0, 0) + offset,))
+            conn.commit()
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 6, 'currentOpen': 2, 'closedInLastWeek': 2 }, 'Another issue closed last week')
+
+            # Have an issue close much earlier so that max open at one time changes
+            conn.execute("""
+                UPDATE issues SET closed_datetime = ? WHERE title = 'an issue 2'""",
+                (datetime(2019, 1, 12, 8, 0, 0) + offset,))
+            conn.commit()
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 5, 'currentOpen': 2, 'closedInLastWeek': 1 }, 'Less issues open at same time')
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 5, 'currentOpen': 2, 'closedInLastWeek': 1 }, 'Repeat using cached')
+
+            # Insert more issues which will clear cached values and force a recalculation
+            issues = [
+                ( 'an issue 9',  'blah blah blah', datetime(2019,  2,  1, 12, 30,  0), datetime(2019, 2, 2, 18, 0, 0) ),
+                ( 'an issue 10', 'blah blah blah', datetime(2019,  2,  1, 13, 30,  0), datetime(2019, 2, 2, 15, 0, 0) ),
+                ( 'an issue 11', 'blah blah blah', datetime(2019,  2,  1, 14, 30,  0), datetime(2019, 2, 2, 14, 0, 0) ),
+                ( 'an issue 12', 'blah blah blah', datetime(2019,  2,  1, 15, 30,  0), datetime(2019, 2, 2, 13, 0, 0) ),
+                ( 'an issue 13', 'blah blah blah', datetime(2019,  2,  1, 16, 30,  0), datetime(2019, 2, 2, 12, 0, 0) ),
+                ( 'an issue 14', 'blah blah blah', datetime(2019,  2,  1, 17, 30,  0), datetime(2019, 2, 2, 11, 0, 0) ),
+                ( 'an issue 15', 'blah blah blah', datetime(2019,  2,  1, 18, 30,  0), datetime(2019, 2, 2, 10, 0, 0) )
+            ]
+
+            # Adjust for current date
+            for i in range(len(issues)):
+                issues[i] = (
+                    issues[i][0], 
+                    issues[i][1],
+                    issues[i][2] + offset, 
+                    (issues[i][3] + offset) if issues[i][3] is not None else None
+                )
+
+            cursor.executemany("""
+                INSERT INTO issues(title, description, opened_datetime, closed_datetime, creatorId)
+                VALUES (?,?,?,?,1)""", issues)
+            conn.commit()
+
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 10, 'currentOpen': 2, 'closedInLastWeek': 8 }, 'More issues open at same time')
+            statistics = self.repo.statistics()
+            self.assertEquals(statistics, { 'maxOpen': 10, 'currentOpen': 2, 'closedInLastWeek': 8 }, 'Repeat using cached')
 
 if __name__ == '__main__':
     main()

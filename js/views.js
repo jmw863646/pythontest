@@ -333,24 +333,79 @@ class LoginUser {
 }
 
 /**
+ * A simple dashboard page showing statistics about the number of issues etc.
+ * 
+ */
+class Dashboard {
+  constructor(vnode) {
+    this.maxOpen = '?'
+    this.currentOpen = '?'
+    this.closedInLastWeek = '?'
+  }
+
+  oninit() {
+    var owner = this
+    IssuesModelSingleton.getDashboardStatistics().then(function(statistics) {
+      owner.maxOpen = statistics.maxOpen
+      owner.currentOpen = statistics.currentOpen
+      owner.closedInLastWeek = statistics.closedInLastWeek
+    })
+  }
+
+  view() {
+    var issuesPercentage = '?'
+    if ((typeof(this.currentOpen) == 'number') && (typeof(this.maxOpen) == 'number')) {
+      if (this.maxOpen == 0)
+        issuesPercentage = '0%'
+      else
+        issuesPercentage = Math.round(this.currentOpen / this.maxOpen * 100.0) + '%'
+    } 
+
+    return m('div', [
+      m('dl.row', [
+        m('dt.col-sm-8', 'Number of issues currently open:'),
+        m('dd.col-sm-3', this.currentOpen),
+      ]),
+      m('dl.row', [
+        m('dt.col-sm-8', 'Percentage of max number of issues open at one time:'),
+        m('dd.col-sm-3', issuesPercentage),
+      ]),
+      m('dl.row', [
+        m('dt.col-sm-8', 'Number of issues closed in the last week:'),
+        m('dd.col-sm-3', this.closedInLastWeek),
+      ]) 
+    ])
+  }
+}
+
+/**
  * The elements of the toolbar container depend on whether a user is logged in.
  * 
  */
 const ToolbarContainer = {
   view(vnode) {
-    var listItems = []
+    // The dashboard is always viewable
+    var dashboardListItem = m('li.nav-item', [
+      m('a.nav-link#navbar-dashboard-button', {href: '/dashboard', oncreate: m.route.link}, 'Dashboard')
+    ])
 
     // Is a user logged in?
+    var listItems = []
     if (UserModelSingleton.email()) {
       listItems.push([
-        m('li.nav-item', UserModelSingleton.email()),
+        m('li.nav-item', 
+          m('p.navbar-text', UserModelSingleton.email())),
         m('li.nav-item', [
           m('a.nav-link', {href: '/issues/create', oncreate: m.route.link}, 'Create')
         ]),
-        m('button.btn#logout-button', {onclick: e => { UserModelSingleton.logout() }}, 'Logout')
+        dashboardListItem,
+        m('p.navbar-button', 
+          m('button.btn#navbar-logout-button', {onclick: e => { UserModelSingleton.logout() }}, 'Logout')
+        )
       ])
     } else {
       listItems.push(
+        dashboardListItem,
         m('li.nav-item', [
           m('a.nav-link#navbar-login-button', {href: '/login', oncreate: m.route.link}, 'Login')
         ])
@@ -369,4 +424,4 @@ const ToolbarContainer = {
   }
 }
 
-module.exports = {IssuesList, ViewIssue, EditIssue, CreateIssue, IssueEditor, RegisterUser, LoginUser, ToolbarContainer}
+module.exports = {IssuesList, ViewIssue, EditIssue, CreateIssue, IssueEditor, RegisterUser, LoginUser, Dashboard, ToolbarContainer}

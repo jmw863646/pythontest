@@ -230,6 +230,12 @@ class IssuesModel {
 
     return await this.loadIssues()
   }
+  async getDashboardStatistics() {
+    return await m.request({
+      method: "GET",
+      url: '/dashboard'
+    })
+  }
 }
 
 const IssuesModelSingleton = new IssuesModel()

@@ -86,6 +86,17 @@ class IssueResource(object):
             repo.issues.update_issue(issue_id, **fields)
             resp.status = falcon.HTTP_204
 
+class DashboardResource(object):
+    """A resource to get statistics for the dashboard."""
+
+    def __init__(self, repo):
+        self._repo = repo
+    
+    def on_get(self, req, resp):
+        with self._repo.open() as repo:
+            resp.media = repo.issues.statistics()
+            resp.status = falcon.HTTP_200
+
 class RegisterResource(object):
     """A resource to register new users."""
 

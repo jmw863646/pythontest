@@ -46,11 +46,14 @@ Then('I should be able to login', async function() {
     var elements = document.querySelectorAll("a[href='#!/login']")
     var loginCount = elements.length
     elements = document.querySelectorAll("a[href='#!/create']")
-    return [ loginCount, elements.length ]
+    var createCount = elements.length
+    elements = document.querySelectorAll("a[href='#!/dashboard']")
+    return [ loginCount, createCount, elements.length ]
   })
 
   assert.equal(counts[0], 1, "The login button should have reappeared")
   assert.equal(counts[1], 0, "The create button should have disappeared")
+  assert.equal(counts[2], 1, "The dashboard button should always be there")
 });
 
 Given("I'd like to create some users", function() {
@@ -75,14 +78,17 @@ Then('should be logged in as user1', async function () {
   await this.browser.wait('div.container > table.table')
 
   var counts = await this.browser.evaluate(function() {
-    var elements = document.querySelectorAll("button#logout-button")
+    var elements = document.querySelectorAll("button#navbar-logout-button")
     var logoutCount = elements.length
     elements = document.querySelectorAll("a[href='#!/issues/create']")
-    return [ logoutCount, elements.length ]
+    var createCount = elements.length
+    elements = document.querySelectorAll("a[href='#!/dashboard']")
+    return [ logoutCount, createCount, elements.length ]
   })
 
   assert.equal(counts[0], 1, "The logout button should have reappeared")
   assert.equal(counts[1], 1, "The create button should have appeared")
+  assert.equal(counts[2], 1, "The dashboard button should always be there")
 });
 
 When('the page is refreshed', async function() {
@@ -93,7 +99,7 @@ Then('should still be logged in', async function() {
   await this.browser.wait('div.container > table.table')
 
   var counts = await this.browser.evaluate(function() {
-    var elements = document.querySelectorAll("button#logout-button")
+    var elements = document.querySelectorAll("button#navbar-logout-button")
     var logoutCount = elements.length
     elements = document.querySelectorAll("a[href='#!/issues/create']")
     return [ logoutCount, elements.length ]
@@ -217,7 +223,7 @@ Then('the description should be updated', async function () {
 When('I logout', async function() {
   this.browser
     .goto('http://localhost:8640/')
-    .click('#logout-button')
+    .click('#navbar-logout-button')
     .wait('#navbar-login-button')
 })
 
@@ -324,4 +330,26 @@ Then('the bug should be assigned', async function() {
   assert.equal(creatorAssignee.length, 2)
   assert.equal(creatorAssignee[0], this.user1.email, 'Check the creator is correct')
   assert.equal(creatorAssignee[1], this.user2.email, 'Check the issue is assigned')
+})
+
+When('I click on the dashboard', async function() {
+  await this.browser
+    .wait("a#navbar-dashboard-button")
+    .click("a#navbar-dashboard-button")
+})
+
+Then('I should see a summary', async function() {
+  await this.browser
+    .wait(500)
+
+  let statistics = await this.browser.evaluate(() => {
+    let ddElements = [].slice.call(document.querySelectorAll('div.container dl > dd'))
+    return ddElements.map(x => x.innerText)
+  })
+
+  let nonNegativeIntegerRE = RegExp('^\\d+$')
+  assert.equal(statistics.length, 3)
+  assert.ok(nonNegativeIntegerRE.test(statistics[0]), 'Should be a non-negative integer')
+  assert.ok(RegExp('^\\d+%$').test(statistics[1]), 'Should be a percentage')
+  assert.ok(nonNegativeIntegerRE.test(statistics[2]), 'Should be a non-negative integer')
 })

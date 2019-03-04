@@ -4,4 +4,4 @@ CREATE TABLE users(
   password VARCHAR(255),
   uuid CHAR(32),
   expiresAt DATETIME
-)
+);

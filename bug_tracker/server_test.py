@@ -116,6 +116,18 @@ class APITest(TestCase):
             parse_date(issue_json_2['opened']) - datetime.timedelta(hours = 3),
             'Timestamp should be earlier as in the USA not Greenwich'
         )
+
+        # Query statistics for the dashboard
+        dashboard_resp = self.client.simulate_get('/dashboard')
+        self.assertEqual(dashboard_resp.status_code, 200)
+        statistics_json = dashboard_resp.json
+        self.assertGreaterEqual(statistics_json['maxOpen'], 1, "There should have been one maximum open issue")
+
+        # Repeating should use a cached value
+        dashboard_resp = self.client.simulate_get('/dashboard')
+        self.assertEqual(dashboard_resp.status_code, 200)
+        statistics_json = dashboard_resp.json
+        self.assertGreaterEqual(statistics_json['maxOpen'], 1)
     
     def test_nonexistent_issues(self):
         fetch_resp = self.client.simulate_get('/issues/1')
